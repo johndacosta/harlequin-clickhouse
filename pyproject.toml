@@ -1,0 +1,67 @@
+[project]
+name = "harlequin-clickhouse"
+version = "0.2.0"
+description = "Harlequin adapter for a ClickHouse server (HTTP and native)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "John DaCosta" }]
+keywords = ["harlequin", "clickhouse", "sql", "tui"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+    "Typing :: Typed",
+]
+dependencies = [
+    "clickhouse-connect>=0.8.0",
+    "clickhouse-driver>=0.2.9",
+    "harlequin>=1.25,<3",
+]
+
+[project.urls]
+Homepage = "https://github.com/johndacosta/harlequin-clickhouse"
+Repository = "https://github.com/johndacosta/harlequin-clickhouse"
+Documentation = "https://github.com/johndacosta/harlequin-clickhouse/blob/main/docs/DESIGN.md"
+
+[project.entry-points."harlequin.adapter"]
+clickhouse = "harlequin_clickhouse:ClickHouseAdapter"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.11",
+    "pytest>=8",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/harlequin_clickhouse"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["A", "B", "E", "F", "I"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src", "tests"]
+mypy_path = "src"
+strict = true
+warn_unused_ignores = true
+ignore_missing_imports = true

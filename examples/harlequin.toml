@@ -1,0 +1,19 @@
+# Example profiles for hsql and harlequin.
+# Copy what you need into your own harlequin.toml. This file sets no
+# default_profile. The password is an environment variable on purpose.
+
+[profiles.clickhouse]
+adapter = "clickhouse"
+conn_str = ["clickhouse://127.0.0.1:8123/sample_db"]
+user = "clickhouse"
+password = "${CLICKHOUSE_PASSWORD}"
+read_only = true
+limit = 500
+
+[profiles.clickhouse_native]
+adapter = "clickhouse"
+conn_str = ["clickhouse://127.0.0.1:9004/sample_db"]
+user = "clickhouse"
+password = "${CLICKHOUSE_PASSWORD}"
+read_only = true
+limit = 500
