@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+import time
 from collections.abc import Iterator
 from uuid import uuid4
 
@@ -115,6 +117,65 @@ def test_cancel_then_select_one(conn: ClickHouseConnection) -> None:
     rows = cursor.fetchall()
     assert rows is not None
     assert int(rows[0][0]) == 1
+
+
+@pytest.mark.parametrize("url", URLS)
+def test_cancel_aborts_inflight_query(url: str) -> None:
+    """cancel() must kill a statement that is actually running, including HTTP."""
+    connection = ClickHouseAdapter([url]).connect()
+    watcher = ClickHouseAdapter([url]).connect()
+    worker: threading.Thread | None = None
+    try:
+        cursor = connection.execute("SELECT sleep(3)")
+        assert cursor is not None
+        caught: list[BaseException] = []
+        done = threading.Event()
+
+        def run() -> None:
+            try:
+                cursor.fetchall()
+            except BaseException as exc:
+                caught.append(exc)
+            finally:
+                done.set()
+
+        started = time.monotonic()
+        worker = threading.Thread(target=run)
+        worker.start()
+        visible = False
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            query_id = connection._current_query_id
+            if query_id and query_id.isalnum():
+                seen = watcher.execute(
+                    "SELECT count() FROM system.processes "
+                    f"WHERE query_id = '{query_id}'"
+                )
+                assert seen is not None
+                found = seen.fetchall()
+                assert found is not None
+                if int(found[0][0]) >= 1:
+                    visible = True
+                    break
+            time.sleep(0.05)
+        assert visible, "the sleep query never reached ClickHouse"
+        connection.cancel()
+        assert done.wait(timeout=2.0)
+        elapsed = time.monotonic() - started
+        assert caught, "sleep ran to completion; cancel did not abort it"
+        assert isinstance(caught[0], HarlequinQueryError)
+        assert "394" in str(caught[0])
+        assert elapsed < 2.5
+        follow = connection.execute("SELECT 1")
+        assert follow is not None
+        rows = follow.fetchall()
+        assert rows is not None
+        assert int(rows[0][0]) == 1
+    finally:
+        if worker is not None:
+            worker.join(timeout=5)
+        connection.close()
+        watcher.close()
 
 
 def test_read_only_constructor_and_select() -> None:

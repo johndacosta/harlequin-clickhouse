@@ -156,14 +156,16 @@ class HttpDriver:
         }
         if config.ca_certs:
             kwargs["ca_cert"] = config.ca_certs
-        # The query id is ours, so cancel can name it. The client would
-        # otherwise invent one and KILL QUERY would miss.
+        # Do not let the client invent an id. Cancel names the id we send.
         kwargs["autogenerate_query_id"] = False
         self._config = config
         self._client: Any = clickhouse_connect.get_client(**kwargs)
 
     def query(self, sql: str, *, query_id: str) -> QueryResult:
-        result: Any = self._client.query(sql, transport_settings={"query_id": query_id})
+        # A URL parameter. transport_settings become HTTP headers, and
+        # ClickHouse does not take a header named query_id as the id
+        # queryID() returns, so KILL QUERY would miss.
+        result: Any = self._client.query(sql, settings={"query_id": query_id})
         names = list(getattr(result, "column_names", ()) or ())
         types = list(getattr(result, "column_types", ()) or ())
         columns = [
@@ -175,7 +177,7 @@ class HttpDriver:
         )
 
     def command(self, sql: str, *, query_id: str) -> None:
-        self._client.command(sql, transport_settings={"query_id": query_id})
+        self._client.command(sql, settings={"query_id": query_id})
 
     def cancel(self, query_id: str) -> None:
         safe = _safe_query_id(query_id)

@@ -105,8 +105,11 @@ stops. Other row-returning statements are sliced client-side. `n <= 0`
 returns column metadata and no rows.
 
 Cancel is enabled (`IMPLEMENTS_CANCEL`). The in-flight statement is tagged
-with a query id. `cancel()` issues `KILL QUERY` on a side connection and
-returns. The original connection stays usable for a later `SELECT 1`.
+with a query id. On HTTP that id is a URL parameter (`settings`), not an
+HTTP header: ClickHouse ignores a header named `query_id` and assigns its
+own, so `KILL QUERY` would miss. `cancel()` issues `KILL QUERY` on a side
+connection and returns. The original connection stays usable for a later
+`SELECT 1`.
 
 Completions are real ClickHouse keywords and functions (`ARRAY JOIN`,
 `arrayJoin`, `toDateTime64`, and the rest of the set in `completions.py`).
