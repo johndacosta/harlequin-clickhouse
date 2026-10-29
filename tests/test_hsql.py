@@ -12,8 +12,12 @@ import sys
 from pathlib import Path
 from uuid import uuid4
 
-NATIVE = "clickhouse://clickhouse:clickhouse@127.0.0.1:9004/sample_db"
-HTTP = "clickhouse://clickhouse:clickhouse@127.0.0.1:8123/sample_db"
+import pytest
+
+from .server import DATABASE, HTTP, NATIVE, WRONG_PASSWORD
+
+pytestmark = pytest.mark.usefixtures("clickhouse_db")
+
 HSQL = Path(sys.executable).with_name("hsql")
 
 
@@ -64,7 +68,7 @@ def test_catalog_levels_and_clickhouse_types() -> None:
     )
     assert databases.returncode == 0, databases.stderr
     database_rows = _jsonl(databases.stdout)
-    assert any(row["name"] == "sample_db" for row in database_rows)
+    assert any(row["name"] == DATABASE for row in database_rows)
 
     relations = _run(
         "-a",
@@ -72,7 +76,7 @@ def test_catalog_levels_and_clickhouse_types() -> None:
         HTTP,
         "--catalog",
         "--path",
-        "sample_db",
+        DATABASE,
         "--jsonl",
         "--no-write-history",
     )
@@ -89,7 +93,7 @@ def test_catalog_levels_and_clickhouse_types() -> None:
         NATIVE,
         "--catalog",
         "--path",
-        "sample_db.types_demo",
+        f"{DATABASE}.types_demo",
         "--jsonl",
         "--no-write-history",
     )
@@ -106,7 +110,7 @@ def test_schema_shaped_path_and_catalog_search_exit_2() -> None:
         HTTP,
         "--catalog",
         "--path",
-        "sample_db.not_a_schema.customers",
+        f"{DATABASE}.not_a_schema.customers",
         "--no-write-history",
     )
     assert missing.returncode == 2
@@ -135,7 +139,7 @@ def test_both_urls_and_limit() -> None:
             "SELECT currentDatabase()",
         )
         assert completed.returncode == 0, completed.stderr
-        assert completed.stdout.strip() == "sample_db"
+        assert completed.stdout.strip() == DATABASE
 
     limited = _run(
         "-a",
@@ -176,7 +180,7 @@ def test_read_only_blocks_ddl_and_bad_sql_exits_1() -> None:
         "SELECT currentDatabase()",
     )
     assert readable.returncode == 0, readable.stderr
-    assert readable.stdout.strip() == "sample_db"
+    assert readable.stdout.strip() == DATABASE
 
     rejected = _run(
         "-a",
@@ -184,7 +188,7 @@ def test_read_only_blocks_ddl_and_bad_sql_exits_1() -> None:
         NATIVE,
         "--no-write-history",
         "-c",
-        "SELECT * FROM sample_db.no_such_table_zzz",
+        f"SELECT * FROM {DATABASE}.no_such_table_zzz",
     )
     assert rejected.returncode == 1
 
@@ -193,7 +197,7 @@ def test_bad_password_exits_3() -> None:
     completed = _run(
         "-a",
         "clickhouse",
-        "clickhouse://clickhouse:wrong-password@127.0.0.1:8123/sample_db",
+        WRONG_PASSWORD,
         "--no-write-history",
         "-c",
         "SELECT 1",

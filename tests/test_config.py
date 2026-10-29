@@ -3,8 +3,8 @@ from __future__ import annotations
 from harlequin_clickhouse import ClickHouseAdapter
 from harlequin_clickhouse.config import build_config
 
-NATIVE = "clickhouse://clickhouse:clickhouse@127.0.0.1:9004/sample_db"
-HTTP = "clickhouse://clickhouse:clickhouse@127.0.0.1:8123/sample_db"
+NATIVE = "clickhouse://analyst:secret@127.0.0.1:9004/analytics"
+HTTP = "clickhouse://analyst:secret@127.0.0.1:8123/analytics"
 
 
 def test_native_url_uses_host_port_9004() -> None:
@@ -12,9 +12,9 @@ def test_native_url_uses_host_port_9004() -> None:
     assert config.interface == "native"
     assert config.port == 9004
     assert config.host == "127.0.0.1"
-    assert config.user == "clickhouse"
-    assert config.password == "clickhouse"
-    assert config.database == "sample_db"
+    assert config.user == "analyst"
+    assert config.password == "secret"
+    assert config.database == "analytics"
     assert config.port != 9000
 
 
@@ -22,11 +22,11 @@ def test_http_url_uses_8123() -> None:
     config = build_config([HTTP], {})
     assert config.interface == "http"
     assert config.port == 8123
-    assert config.database == "sample_db"
+    assert config.database == "analytics"
 
 
 def test_omitted_port_is_http_8123_not_9000() -> None:
-    config = build_config(["clickhouse://127.0.0.1/sample_db"], {})
+    config = build_config(["clickhouse://127.0.0.1/analytics"], {})
     assert config.interface == "http"
     assert config.port == 8123
 
