@@ -6,8 +6,7 @@ instead of inventing a client. This package registers the `clickhouse` adapter.
 
 This package does not add an MCP server. A shell agent runs `hsql`. A Python
 agent calls `connect`, `get_catalog`, and `execute` (see the README). Either
-one is enough. ThomAub/clickhouse_mcp_server is a different project and is not
-wrapped here.
+one is enough.
 
 ## Orient before writing SQL
 
@@ -39,7 +38,7 @@ hsql -P clickhouse --catalog --path 'sample_db.order*'
 | `name` | The label in that level. |
 | `query_name` | Paste into SQL. Already backtick-quoted. Do not invent quoting. |
 | `type` | The ClickHouse type string (`Array(String)`, `Decimal(18, 4)`, `DateTime64(6, 'UTC')`, `Nullable(String)`, `Map(...)`, `Tuple(...)`). |
-| `type_label` | The same ClickHouse type, so a short listing still shows Array, Map, Tuple, Decimal, DateTime64, and Nullable. |
+| `type_label` | A 1-3 character label such as `[]`, `#.#`, or `ts`. |
 
 `sample_db.analytics.orders` is a Postgres-shaped path. It will not resolve.
 The table is `sample_db.orders`.
@@ -102,16 +101,14 @@ limit = 500
 
 [profiles.clickhouse_native]
 adapter = "clickhouse"
-conn_str = ["clickhouse://127.0.0.1:9004/sample_db"]
+conn_str = ["clickhouse://127.0.0.1:9000/sample_db"]
 user = "clickhouse"
 password = "${CLICKHOUSE_PASSWORD}"
 ```
 
-Port **8123** is HTTP. Port **9004** is native TCP (container port 9000).
-Leaving the port out selects HTTP 8123. Host port 9000 is the wrong default
-on machines where another database already owns it. `--interface http` or
-`--interface native` overrides the guess. `--secure` turns on TLS and is
-forwarded; this dev server is plaintext.
+Port **8123** is HTTP. Port **9000** is native TCP, and so is a URL with no
+port. On a remapped port, `--interface http` or `--interface native` picks
+the protocol. `--secure` turns on TLS.
 
 Repeat a setting when a query needs one:
 

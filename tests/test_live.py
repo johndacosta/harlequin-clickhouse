@@ -1,19 +1,23 @@
-"""Live tests against the homenetwork ClickHouse. They do not mock the driver."""
+"""Live tests against a ClickHouse server. They do not mock the driver."""
 
 from __future__ import annotations
 
 import threading
 import time
 from collections.abc import Iterator
-from uuid import uuid4
+from uuid import UUID, uuid4
 
+import pyarrow as pa
 import pytest
 from harlequin.exception import HarlequinConnectionError, HarlequinQueryError
+from textual_fastdatatable.backend import create_backend
 
 from harlequin_clickhouse import ClickHouseAdapter, ClickHouseConnection
 
-NATIVE = "clickhouse://clickhouse:clickhouse@127.0.0.1:9004/sample_db"
-HTTP = "clickhouse://clickhouse:clickhouse@127.0.0.1:8123/sample_db"
+from .server import DATABASE, HTTP, NATIVE, WRONG_PASSWORD
+
+pytestmark = pytest.mark.usefixtures("clickhouse_db")
+
 URLS = (NATIVE, HTTP)
 TYPE_TOKENS = ("Array", "Map", "Tuple", "Decimal", "DateTime64", "Nullable")
 RELATIONS = ("customers", "orders", "types_demo", "v_orders_summary")
@@ -28,7 +32,7 @@ def conn(request: pytest.FixtureRequest) -> Iterator[ClickHouseConnection]:
         connection.close()
 
 
-def test_sample_db_query_and_conn_attribute(conn: ClickHouseConnection) -> None:
+def test_query_and_conn_attribute(conn: ClickHouseConnection) -> None:
     assert conn.conn is not None
     catalog = conn.get_catalog()
     assert catalog.items
@@ -36,7 +40,7 @@ def test_sample_db_query_and_conn_attribute(conn: ClickHouseConnection) -> None:
     assert cursor is not None
     rows = cursor.fetchall()
     assert rows is not None
-    assert rows[0][0] == "sample_db"
+    assert rows[0][0] == DATABASE
     counted = conn.execute("SELECT count() FROM customers")
     assert counted is not None
     count_rows = counted.fetchall()
@@ -50,15 +54,31 @@ def test_catalog_lists_seed_relations_and_clickhouse_types(
     relations = {
         item.label: item
         for database in conn.get_catalog().items
-        if database.label == "sample_db"
+        if database.label == DATABASE
         for item in database.children
     }
     for name in RELATIONS:
         assert name in relations
     assert relations["v_orders_summary"].type_label == "v"
-    labels = " ".join(column.type_label for column in relations["types_demo"].children)
+    columns = {column.label: column for column in relations["types_demo"].children}
+    names = " ".join(str(column.type_name) for column in columns.values())
     for token in TYPE_TOKENS:
-        assert token in labels
+        assert token in names
+    assert all(1 <= len(column.type_label) <= 3 for column in columns.values())
+    assert columns["tags"].type_label == "[]"
+    assert columns["note"].type_label == "s"
+
+
+def test_nested_values_are_python_objects(conn: ClickHouseConnection) -> None:
+    cursor = conn.execute("SELECT tags, attrs, pair, uid FROM types_demo")
+    assert cursor is not None
+    rows = cursor.fetchall()
+    assert rows is not None
+    tags, attrs, pair, uid = rows[0]
+    assert tags == ["a", "b"]
+    assert attrs == {"k": 1}
+    assert pair == {"1": 1, "2": "x"}
+    assert uid == UUID("00000000-0000-0000-0000-000000000001")
 
 
 def test_row_limit_bounds_the_fetch(conn: ClickHouseConnection) -> None:
@@ -90,7 +110,7 @@ def test_ddl_round_trip(conn: ClickHouseConnection) -> None:
 
 
 def test_rejected_query(conn: ClickHouseConnection) -> None:
-    cursor = conn.execute("SELECT * FROM sample_db.no_such_table_zzz")
+    cursor = conn.execute(f"SELECT * FROM {DATABASE}.no_such_table_zzz")
     assert cursor is not None
     with pytest.raises(HarlequinQueryError):
         cursor.fetchall()
@@ -191,15 +211,13 @@ def test_read_only_constructor_and_select() -> None:
         assert cursor is not None
         rows = cursor.fetchall()
         assert rows is not None
-        assert rows[0][0] == "sample_db"
+        assert rows[0][0] == DATABASE
     finally:
         connection.close()
 
 
 def test_bad_password_raises_connection_error() -> None:
-    adapter = ClickHouseAdapter(
-        ["clickhouse://clickhouse:wrong-password@127.0.0.1:8123/sample_db"]
-    )
+    adapter = ClickHouseAdapter([WRONG_PASSWORD])
     with pytest.raises(HarlequinConnectionError):
         adapter.connect()
 
@@ -215,3 +233,13 @@ def test_entry_point_loads_the_shipped_adapter() -> None:
     assert matches
     loaded = matches[-1].load()
     assert loaded is ClickHouseAdapter
+
+
+def test_tuple_keeps_the_grid_typed(conn: ClickHouseConnection) -> None:
+    cursor = conn.execute("SELECT id, pair FROM types_demo")
+    assert cursor is not None
+    rows = cursor.fetchall()
+    assert rows is not None
+    backend = create_backend(rows)
+    assert not pa.types.is_string(backend.data.schema.field(0).type)
+    assert pa.types.is_struct(backend.data.schema.field(1).type)

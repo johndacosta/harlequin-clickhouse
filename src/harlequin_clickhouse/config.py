@@ -10,7 +10,7 @@ DEFAULT_DATABASE = "default"
 DEFAULT_CLIENT_NAME = "harlequin-clickhouse"
 
 HTTP_PORTS = frozenset({8123, 8443})
-NATIVE_PORTS = frozenset({9000, 9004, 9440})
+NATIVE_PORTS = frozenset({9000, 9440})
 HTTP_PORT = 8123
 HTTP_SECURE_PORT = 8443
 NATIVE_PORT = 9000
@@ -35,6 +35,8 @@ class ClickHouseConfig:
     settings: dict[str, Any] = field(default_factory=dict)
     client_name: str = DEFAULT_CLIENT_NAME
     ca_certs: str | None = None
+    connect_timeout: int | None = None
+    send_receive_timeout: int | None = None
 
     @property
     def safe_id(self) -> str:
@@ -53,9 +55,10 @@ def build_config(
 ) -> ClickHouseConfig:
     """Merge a Harlequin conn_str with CLI options.
 
-    Extra keys in `options` are ignored. A missing port becomes HTTP 8123,
-    never host port 9000. Port 8123/8443 selects HTTP. Port 9000/9004/9440
-    selects the native protocol, including the homenetwork host port 9004.
+    Extra keys in `options` are ignored. A missing port becomes native 9000
+    (9440 with TLS), as in earlier harlequin-clickhouse releases. Port
+    8123/8443 selects HTTP. Port 9000/9440 selects the native protocol.
+    Any other port uses the native protocol unless `interface` says otherwise.
     """
     parsed = _parse_conn_str(conn_str)
 
@@ -103,6 +106,15 @@ def build_config(
         "ca_certs"
     )
 
+    connect_timeout = _parse_seconds(
+        _first_present(options, "connect_timeout", "connect-timeout"),
+        "connect_timeout",
+    )
+    send_receive_timeout = _parse_seconds(
+        _first_present(options, "send_receive_timeout", "send-receive-timeout"),
+        "send_receive_timeout",
+    )
+
     port_option = _first_present(options, "port")
     port = (
         _parse_port(port_option) if port_option is not _MISSING else parsed.get("port")
@@ -134,6 +146,8 @@ def build_config(
         settings=settings,
         client_name=str(client_name),
         ca_certs=str(ca_certs) if ca_certs else None,
+        connect_timeout=connect_timeout,
+        send_receive_timeout=send_receive_timeout,
     )
 
 
@@ -264,10 +278,8 @@ def _resolve_interface(*, explicit: str | None, scheme: str, port: int | None) -
         return "http"
     if port in NATIVE_PORTS:
         return "native"
-    # No port at all: HTTP on 8123. An explicit unusual port stays native so a
-    # custom native listener still works; 9004 is already classified above.
-    if port is None:
-        return "http"
+    # No port, or an unusual one: native, the protocol earlier releases used.
+    # Pass `interface` to choose HTTP on a remapped port.
     return "native"
 
 
@@ -285,6 +297,20 @@ def _parse_port(value: Any) -> int | None:
     if not 1 <= port <= 65535:
         raise ValueError("Port must be an integer between 1 and 65535.")
     return port
+
+
+def _parse_seconds(value: Any, name: str) -> int | None:
+    if value is _MISSING or value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be a whole number of seconds.")
+    try:
+        seconds = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be a whole number of seconds.") from None
+    if seconds <= 0:
+        raise ValueError(f"{name} must be a whole number of seconds.")
+    return seconds
 
 
 def _parse_settings(value: Any) -> dict[str, Any]:

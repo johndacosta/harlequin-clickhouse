@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
-from decimal import Decimal
 from typing import Any, Protocol
 
 from harlequin_clickhouse.config import ClickHouseConfig
@@ -31,14 +29,23 @@ def open_driver(config: ClickHouseConfig) -> ClickHouseDriver:
 
 
 def _cell(value: Any) -> Any:
-    """Values the results grid can show. Nested ClickHouse values become text."""
-    if value is None or isinstance(value, (str, int, float, bool, Decimal, datetime)):
-        return value
-    if isinstance(value, date):
-        return value
+    """Make a value the results grid can show as a typed column.
+
+    Bytes become text. A tuple becomes a dict keyed by element position
+    ("1", "2", ...), as in ClickHouse's ``t.1``, so the grid shows it as a
+    struct the way Harlequin shows DuckDB structs. A tuple with mixed
+    element types would otherwise turn the whole grid into plain text.
+    Arrays, maps, and UUIDs stay Python objects.
+    """
     if isinstance(value, (bytes, bytearray)):
         return bytes(value).decode("utf-8", errors="replace")
-    return str(value)
+    if isinstance(value, tuple):
+        return {str(i): _cell(v) for i, v in enumerate(value, start=1)}
+    if isinstance(value, list):
+        return [_cell(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _cell(v) for k, v in value.items()}
+    return value
 
 
 def _rows(raw: Any) -> list[tuple[Any, ...]]:
@@ -95,6 +102,10 @@ class NativeDriver:
             "client_name": config.client_name,
             "settings": config.settings or None,
         }
+        if config.connect_timeout is not None:
+            kwargs["connect_timeout"] = config.connect_timeout
+        if config.send_receive_timeout is not None:
+            kwargs["send_receive_timeout"] = config.send_receive_timeout
         if config.secure:
             kwargs["verify"] = config.verify
             if config.ca_certs:
@@ -156,6 +167,10 @@ class HttpDriver:
         }
         if config.ca_certs:
             kwargs["ca_cert"] = config.ca_certs
+        if config.connect_timeout is not None:
+            kwargs["connect_timeout"] = config.connect_timeout
+        if config.send_receive_timeout is not None:
+            kwargs["send_receive_timeout"] = config.send_receive_timeout
         # Do not let the client invent an id. Cancel names the id we send.
         kwargs["autogenerate_query_id"] = False
         self._config = config
