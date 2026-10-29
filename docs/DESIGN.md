@@ -54,7 +54,8 @@ usable.
 
 ## Values
 
-Arrays, maps, tuples, and UUIDs are returned as Python objects. Bytes are
+Arrays, maps, and UUIDs are returned as Python objects. A tuple becomes a
+dict keyed by position ("1", "2", ...), so the grid shows it as a struct. Bytes are
 decoded as UTF-8.
 
 ## Not in scope
