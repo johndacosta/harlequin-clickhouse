@@ -12,7 +12,7 @@ limit = 500
 
 [profiles.clickhouse_native]
 adapter = "clickhouse"
-conn_str = ["clickhouse://127.0.0.1:9004/sample_db"]
+conn_str = ["clickhouse://127.0.0.1:9000/sample_db"]
 user = "clickhouse"
 password = "${CLICKHOUSE_PASSWORD}"
 read_only = true
