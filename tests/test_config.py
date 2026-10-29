@@ -24,10 +24,27 @@ def test_http_url_uses_8123() -> None:
     assert config.database == "analytics"
 
 
-def test_omitted_port_is_http_8123_not_9000() -> None:
+def test_omitted_port_is_native_9000() -> None:
     config = build_config(["clickhouse://127.0.0.1/analytics"], {})
-    assert config.interface == "http"
-    assert config.port == 8123
+    assert config.interface == "native"
+    assert config.port == 9000
+    assert build_config([], {"secure": True}).port == 9440
+
+
+def test_earlier_option_names_still_work() -> None:
+    config = build_config(
+        [],
+        {
+            "secure": "True",
+            "verify": "False",
+            "connect_timeout": "5",
+            "send_receive_timeout": "60",
+        },
+    )
+    assert config.secure is True
+    assert config.verify is False
+    assert config.connect_timeout == 5
+    assert config.send_receive_timeout == 60
 
 
 def test_remapped_port_follows_interface() -> None:

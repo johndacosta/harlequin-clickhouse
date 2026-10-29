@@ -95,6 +95,10 @@ class NativeDriver:
             "client_name": config.client_name,
             "settings": config.settings or None,
         }
+        if config.connect_timeout is not None:
+            kwargs["connect_timeout"] = config.connect_timeout
+        if config.send_receive_timeout is not None:
+            kwargs["send_receive_timeout"] = config.send_receive_timeout
         if config.secure:
             kwargs["verify"] = config.verify
             if config.ca_certs:
@@ -156,6 +160,10 @@ class HttpDriver:
         }
         if config.ca_certs:
             kwargs["ca_cert"] = config.ca_certs
+        if config.connect_timeout is not None:
+            kwargs["connect_timeout"] = config.connect_timeout
+        if config.send_receive_timeout is not None:
+            kwargs["send_receive_timeout"] = config.send_receive_timeout
         # Do not let the client invent an id. Cancel names the id we send.
         kwargs["autogenerate_query_id"] = False
         self._config = config

@@ -12,6 +12,18 @@ def _validate_port(raw: str | None) -> tuple[bool, str | None]:
     return False, "Port must be an integer between 1 and 65535."
 
 
+def _validate_bool(raw: str | None) -> tuple[bool, str | None]:
+    if raw is None or raw.strip().lower() in {"", "true", "false"}:
+        return True, None
+    return False, "Expected true or false."
+
+
+def _validate_seconds(raw: str | None) -> tuple[bool, str | None]:
+    if raw is None or raw == "" or raw.isdigit() and int(raw) > 0:
+        return True, None
+    return False, "Expected a whole number of seconds."
+
+
 HOST = TextOption(
     name="host",
     description="ClickHouse server host.",
@@ -23,7 +35,7 @@ PORT = TextOption(
     description=(
         "ClickHouse port. 8123/8443 use HTTP and 9000/9440 use the native "
         "protocol. Other ports use the native protocol unless --interface "
-        "says otherwise. Omit this to use 8123."
+        "says otherwise. Omit this to use 9000 (9440 with --secure)."
     ),
     short_decls=["-p"],
     validator=_validate_port,
@@ -62,6 +74,15 @@ INTERFACE = SelectOption(
     choices=["http", "native"],
 )
 
+VERIFY = TextOption(
+    name="verify",
+    description=(
+        "Verify the TLS certificate: true or false. Defaults to true. "
+        "Same as --no-verify when false."
+    ),
+    validator=_validate_bool,
+)
+
 NO_VERIFY = FlagOption(
     name="no-verify",
     description="Disable TLS certificate verification.",
@@ -75,6 +96,18 @@ CA_CERT = TextOption(
 COMPRESSION = FlagOption(
     name="compression",
     description="Compress ClickHouse traffic (LZ4).",
+)
+
+CONNECT_TIMEOUT = TextOption(
+    name="connect_timeout",
+    description="Seconds to wait while connecting. Defaults to 10.",
+    validator=_validate_seconds,
+)
+
+SEND_RECEIVE_TIMEOUT = TextOption(
+    name="send_receive_timeout",
+    description="Seconds to wait while sending or receiving data. Defaults to 300.",
+    validator=_validate_seconds,
 )
 
 CLIENT_NAME = TextOption(
@@ -98,9 +131,12 @@ CLICKHOUSE_OPTIONS = [
     DATABASE,
     SECURE,
     INTERFACE,
+    VERIFY,
     NO_VERIFY,
     CA_CERT,
     COMPRESSION,
+    CONNECT_TIMEOUT,
+    SEND_RECEIVE_TIMEOUT,
     CLIENT_NAME,
     SETTING,
 ]
