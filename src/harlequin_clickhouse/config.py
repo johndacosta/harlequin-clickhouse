@@ -10,7 +10,7 @@ DEFAULT_DATABASE = "default"
 DEFAULT_CLIENT_NAME = "harlequin-clickhouse"
 
 HTTP_PORTS = frozenset({8123, 8443})
-NATIVE_PORTS = frozenset({9000, 9004, 9440})
+NATIVE_PORTS = frozenset({9000, 9440})
 HTTP_PORT = 8123
 HTTP_SECURE_PORT = 8443
 NATIVE_PORT = 9000
@@ -53,9 +53,9 @@ def build_config(
 ) -> ClickHouseConfig:
     """Merge a Harlequin conn_str with CLI options.
 
-    Extra keys in `options` are ignored. A missing port becomes HTTP 8123,
-    never host port 9000. Port 8123/8443 selects HTTP. Port 9000/9004/9440
-    selects the native protocol, including the homenetwork host port 9004.
+    Extra keys in `options` are ignored. A missing port becomes HTTP 8123.
+    Port 8123/8443 selects HTTP. Port 9000/9440 selects the native protocol.
+    Any other port uses the native protocol unless `interface` says otherwise.
     """
     parsed = _parse_conn_str(conn_str)
 
@@ -265,7 +265,7 @@ def _resolve_interface(*, explicit: str | None, scheme: str, port: int | None) -
     if port in NATIVE_PORTS:
         return "native"
     # No port at all: HTTP on 8123. An explicit unusual port stays native so a
-    # custom native listener still works; 9004 is already classified above.
+    # remapped native listener still works; pass `interface` to choose HTTP.
     if port is None:
         return "http"
     return "native"

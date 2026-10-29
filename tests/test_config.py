@@ -3,19 +3,18 @@ from __future__ import annotations
 from harlequin_clickhouse import ClickHouseAdapter
 from harlequin_clickhouse.config import build_config
 
-NATIVE = "clickhouse://analyst:secret@127.0.0.1:9004/analytics"
+NATIVE = "clickhouse://analyst:secret@127.0.0.1:9000/analytics"
 HTTP = "clickhouse://analyst:secret@127.0.0.1:8123/analytics"
 
 
-def test_native_url_uses_host_port_9004() -> None:
+def test_native_url_uses_9000() -> None:
     config = build_config([NATIVE], {})
     assert config.interface == "native"
-    assert config.port == 9004
+    assert config.port == 9000
     assert config.host == "127.0.0.1"
     assert config.user == "analyst"
     assert config.password == "secret"
     assert config.database == "analytics"
-    assert config.port != 9000
 
 
 def test_http_url_uses_8123() -> None:
@@ -31,10 +30,10 @@ def test_omitted_port_is_http_8123_not_9000() -> None:
     assert config.port == 8123
 
 
-def test_cli_port_9004_is_native() -> None:
-    config = build_config([], {"host": "127.0.0.1", "port": "9004"})
-    assert config.interface == "native"
-    assert config.port == 9004
+def test_remapped_port_follows_interface() -> None:
+    config = build_config([], {"port": "18123", "interface": "http"})
+    assert config.interface == "http"
+    assert config.port == 18123
 
 
 def test_repeatable_settings_and_tls_flag_are_forwarded() -> None:

@@ -21,9 +21,9 @@ HOST = TextOption(
 PORT = TextOption(
     name="port",
     description=(
-        "ClickHouse port. 8123 is the HTTP interface. 9004 is the native "
-        "protocol on hosts where container port 9000 is published as 9004 "
-        "(host port 9000 is often another database). Omit this to use 8123."
+        "ClickHouse port. 8123/8443 use HTTP and 9000/9440 use the native "
+        "protocol. Other ports use the native protocol unless --interface "
+        "says otherwise. Omit this to use 8123."
     ),
     short_decls=["-p"],
     validator=_validate_port,
@@ -57,7 +57,7 @@ INTERFACE = SelectOption(
     name="interface",
     description=(
         "Wire protocol: http or native. Inferred from the port when omitted "
-        "(8123/8443 HTTP, 9000/9004/9440 native)."
+        "(8123/8443 HTTP, 9000/9440 native)."
     ),
     choices=["http", "native"],
 )
