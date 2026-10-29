@@ -29,9 +29,22 @@ def open_driver(config: ClickHouseConfig) -> ClickHouseDriver:
 
 
 def _cell(value: Any) -> Any:
-    """Bytes become text. Arrays, maps, tuples, and UUIDs stay Python objects."""
+    """Make a value the results grid can show as a typed column.
+
+    Bytes become text. A tuple becomes a dict keyed by element position
+    ("1", "2", ...), as in ClickHouse's ``t.1``, so the grid shows it as a
+    struct the way Harlequin shows DuckDB structs. A tuple with mixed
+    element types would otherwise turn the whole grid into plain text.
+    Arrays, maps, and UUIDs stay Python objects.
+    """
     if isinstance(value, (bytes, bytearray)):
         return bytes(value).decode("utf-8", errors="replace")
+    if isinstance(value, tuple):
+        return {str(i): _cell(v) for i, v in enumerate(value, start=1)}
+    if isinstance(value, list):
+        return [_cell(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _cell(v) for k, v in value.items()}
     return value
 
 

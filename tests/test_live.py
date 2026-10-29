@@ -7,8 +7,10 @@ import time
 from collections.abc import Iterator
 from uuid import UUID, uuid4
 
+import pyarrow as pa
 import pytest
 from harlequin.exception import HarlequinConnectionError, HarlequinQueryError
+from textual_fastdatatable.backend import create_backend
 
 from harlequin_clickhouse import ClickHouseAdapter, ClickHouseConnection
 
@@ -75,7 +77,7 @@ def test_nested_values_are_python_objects(conn: ClickHouseConnection) -> None:
     tags, attrs, pair, uid = rows[0]
     assert tags == ["a", "b"]
     assert attrs == {"k": 1}
-    assert tuple(pair) == (1, "x")
+    assert pair == {"1": 1, "2": "x"}
     assert uid == UUID("00000000-0000-0000-0000-000000000001")
 
 
@@ -231,3 +233,13 @@ def test_entry_point_loads_the_shipped_adapter() -> None:
     assert matches
     loaded = matches[-1].load()
     assert loaded is ClickHouseAdapter
+
+
+def test_tuple_keeps_the_grid_typed(conn: ClickHouseConnection) -> None:
+    cursor = conn.execute("SELECT id, pair FROM types_demo")
+    assert cursor is not None
+    rows = cursor.fetchall()
+    assert rows is not None
+    backend = create_backend(rows)
+    assert not pa.types.is_string(backend.data.schema.field(0).type)
+    assert pa.types.is_struct(backend.data.schema.field(1).type)
