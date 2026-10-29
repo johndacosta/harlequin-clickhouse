@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
-from decimal import Decimal
 from typing import Any, Protocol
 
 from harlequin_clickhouse.config import ClickHouseConfig
@@ -31,14 +29,10 @@ def open_driver(config: ClickHouseConfig) -> ClickHouseDriver:
 
 
 def _cell(value: Any) -> Any:
-    """Values the results grid can show. Nested ClickHouse values become text."""
-    if value is None or isinstance(value, (str, int, float, bool, Decimal, datetime)):
-        return value
-    if isinstance(value, date):
-        return value
+    """Bytes become text. Arrays, maps, tuples, and UUIDs stay Python objects."""
     if isinstance(value, (bytes, bytearray)):
         return bytes(value).decode("utf-8", errors="replace")
-    return str(value)
+    return value
 
 
 def _rows(raw: Any) -> list[tuple[Any, ...]]:

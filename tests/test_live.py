@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Iterator
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from harlequin.exception import HarlequinConnectionError, HarlequinQueryError
@@ -65,6 +65,18 @@ def test_catalog_lists_seed_relations_and_clickhouse_types(
     assert all(1 <= len(column.type_label) <= 3 for column in columns.values())
     assert columns["tags"].type_label == "[]"
     assert columns["note"].type_label == "s"
+
+
+def test_nested_values_are_python_objects(conn: ClickHouseConnection) -> None:
+    cursor = conn.execute("SELECT tags, attrs, pair, uid FROM types_demo")
+    assert cursor is not None
+    rows = cursor.fetchall()
+    assert rows is not None
+    tags, attrs, pair, uid = rows[0]
+    assert tags == ["a", "b"]
+    assert attrs == {"k": 1}
+    assert tuple(pair) == (1, "x")
+    assert uid == UUID("00000000-0000-0000-0000-000000000001")
 
 
 def test_row_limit_bounds_the_fetch(conn: ClickHouseConnection) -> None:
