@@ -58,9 +58,13 @@ def test_catalog_lists_seed_relations_and_clickhouse_types(
     for name in RELATIONS:
         assert name in relations
     assert relations["v_orders_summary"].type_label == "v"
-    labels = " ".join(column.type_label for column in relations["types_demo"].children)
+    columns = {column.label: column for column in relations["types_demo"].children}
+    names = " ".join(str(column.type_name) for column in columns.values())
     for token in TYPE_TOKENS:
-        assert token in labels
+        assert token in names
+    assert all(1 <= len(column.type_label) <= 3 for column in columns.values())
+    assert columns["tags"].type_label == "[]"
+    assert columns["note"].type_label == "s"
 
 
 def test_row_limit_bounds_the_fetch(conn: ClickHouseConnection) -> None:

@@ -18,6 +18,7 @@ from harlequin_clickhouse.config import (
     leading_keyword,
 )
 from harlequin_clickhouse.drivers import ClickHouseDriver, QueryResult, open_driver
+from harlequin_clickhouse.types import short_type
 
 ROW_RETURNING = frozenset({"select", "with", "show", "describe", "desc", "explain"})
 WRAPPABLE = frozenset({"select", "with"})
@@ -88,7 +89,9 @@ class ClickHouseCursor(HarlequinCursor):
         elif self._limit is not None and self._limit < 0:
             rows = []
         self._rows = rows
-        self._columns = [(name, type_name) for name, type_name in result.columns]
+        self._columns = [
+            (name, short_type(type_name)) for name, type_name in result.columns
+        ]
         self._ready = True
 
 
@@ -249,7 +252,7 @@ def _catalog_items(
                     ),
                     query_name=_quote(column),
                     label=column,
-                    type_label=col_type,
+                    type_label=short_type(col_type),
                     type_name=col_type,
                 )
                 for column, col_type in meta["columns"]
